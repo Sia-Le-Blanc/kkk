@@ -31,6 +31,25 @@ class MosaicProcessor:
             self.model = YOLO(self.model_path)
             self.model_ready = True
             print(f"✅ Ultralytics YOLO 모델 로드 성공: {self.model_path}")
+        
+            # 테스트 이미지로 모델 테스트
+            import os
+            test_img_path = os.path.join('resources', 'test.png')
+            if os.path.exists(test_img_path):
+                print(f"🧪 테스트 이미지로 모델 테스트: {test_img_path}")
+                test_results = self.model(test_img_path)
+                print(f"🧪 테스트 결과: {len(test_results[0].boxes)} 객체 감지됨")
+                
+                # 감지된 객체 정보 출력
+                for i, box in enumerate(test_results[0].boxes):
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    class_id = int(box.cls[0])
+                    conf = float(box.conf[0])
+                    class_name = self.class_names[class_id] if class_id < len(self.class_names) else f"Class-{class_id}"
+                    print(f"🧪 테스트 감지 #{i+1}: {class_name} ({conf:.2f}) @ [{x1},{y1},{x2},{y2}]")
+            else:
+                print("🧪 테스트 이미지를 찾을 수 없습니다. resources/test.jpg를 추가하세요.")
+        
         except Exception as e:
             print(f"❌ 모델 로드 실패: {e}")
             self.model_ready = False
@@ -63,39 +82,70 @@ class MosaicProcessor:
             return frame
 
         try:
-            # 원본 프레임 복사 (수정할 사본)
+            # 디버깅용 정보 출력
+            h, w, c = frame.shape
+            print(f"🔍 프레임 분석: 크기={w}x{h}, 채널={c}, 타입={frame.dtype}")
+            
+            # 프레임 복사 및 전처리
             processed_frame = frame.copy()
             
-            # 모델 예측 실행
-            results = self.model(frame)
+            # BGR -> RGB 변환 (YOLO는 RGB 입력 예상)
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             
-            # 디버깅
-            print(f"✅ 감지 결과: {len(results[0].boxes)} 객체 감지됨")
+            # 모델 실행
+            results = self.model(rgb_frame, verbose=True)
             
             # 결과 처리
-            for box in results[0].boxes:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                class_id = int(box.cls[0])
-                conf = float(box.conf[0])
-                
-                # 신뢰도 임계값 확인
-                if conf < self.config.get('conf_threshold', 0.5):
-                    continue
-                
-                # 클래스 이름 가져오기
-                if class_id < len(self.class_names):
-                    class_name = self.class_names[class_id]
-                else:
-                    class_name = f"Class-{class_id}"
-                
-                # 디버깅 - 감지된 객체 정보 출력
-                print(f"📌 감지: {class_name} ({conf:.2f}) @ [{x1},{y1},{x2},{y2}]")
-                
-                # 타겟 클래스인 경우 모자이크 적용
-                if class_name in self.targets:
-                    print(f"🎯 모자이크 적용: {class_name}")
-                    processed_frame = self.apply_mosaic(processed_frame, x1, y1, x2, y2)
-
+            num_detections = len(results[0].boxes)
+            print(f"✅ 감지 결과: {num_detections} 객체 감지됨")
+            
+            # 감지된 객체가 있으면 처리
+            if num_detections > 0:
+                for i, box in enumerate(results[0].boxes):
+                    # 좌표 및 정보 추출
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    class_id = int(box.cls[0])
+                    conf = float(box.conf[0])
+                    
+                    # 신뢰도 임계값 확인
+                    threshold = self.config.get('conf_threshold', 0.5)
+                    if conf < threshold:
+                        print(f"ℹ️ 객체 #{i+1} 신뢰도 부족: {conf:.2f} < {threshold}")
+                        continue
+                    
+                    # 클래스 이름 가져오기
+                    if class_id < len(self.class_names):
+                        class_name = self.class_names[class_id]
+                    else:
+                        class_name = f"Class-{class_id}"
+                    
+                    # 디버깅 정보 출력
+                    print(f"📌 감지 #{i+1}: {class_name} ({conf:.2f}) @ [{x1},{y1},{x2},{y2}]")
+                    
+                    # 타겟 클래스인 경우 모자이크 적용
+                    if class_name in self.targets:
+                        print(f"🎯 모자이크 적용: {class_name}")
+                        processed_frame = self.apply_mosaic(processed_frame, x1, y1, x2, y2)
+                    else:
+                        print(f"ℹ️ 타겟이 아님: {class_name} ∉ {self.targets}")
+            
+            # 디버깅: 매 100 프레임마다 이미지 저장
+            if not hasattr(self, 'frame_count'):
+                self.frame_count = 0
+            self.frame_count += 1
+            
+            if self.frame_count % 100 == 1:
+                try:
+                    import os
+                    debug_dir = "debug_detection"
+                    os.makedirs(debug_dir, exist_ok=True)
+                    debug_path = os.path.join(debug_dir, f"frame_{self.frame_count:04d}.jpg")
+                    cv2.imwrite(debug_path, frame)
+                    print(f"🧪 디버깅용 프레임 저장: {debug_path}")
+                except Exception as e:
+                    print(f"⚠️ 디버깅 이미지 저장 실패: {e}")
+            
+            
             return processed_frame
 
         except Exception as e:
@@ -103,3 +153,18 @@ class MosaicProcessor:
             import traceback
             traceback.print_exc()
             return frame
+        
+
+    def apply_test_pattern(self, frame):
+        """테스트용 패턴 적용 (화면 중앙에 모자이크)"""
+        h, w = frame.shape[:2]
+        center_x, center_y = w // 2, h // 2
+        size = min(w, h) // 4
+        
+        x1 = center_x - size
+        y1 = center_y - size
+        x2 = center_x + size
+        y2 = center_y + size
+        
+        print(f"🧪 테스트 모자이크: 중앙 영역 [{x1},{y1},{x2},{y2}]")
+        return self.apply_mosaic(frame, x1, y1, x2, y2)
