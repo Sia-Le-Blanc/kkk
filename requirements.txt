@@ -6,3 +6,4 @@ pywin32>=300
 PyQt5>=5.15.0;platform_system=="Windows"
 Pillow>=9.0.0
 pypiwin32>=223;platform_system=="Windows"
+ultralytics>=8.0.20

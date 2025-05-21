@@ -10,7 +10,7 @@ CONFIG = {
         'debug_save_interval': 300  # 디버그 이미지 저장 간격 (프레임 수)
     },
     'overlay': {
-        'default_type': 'cv2',   # 기본 오버레이 타입 (cv2, win32, opengl, directx)
+        'default_type': 'pygame',   # 기본 오버레이 타입 (pygame, cv2, win32, opengl, directx)
         'fps': 30,               # 오버레이 렌더링 FPS
         'debug_save_interval': 100  # 디버그 이미지 저장 간격 (프레임 수)
     },
