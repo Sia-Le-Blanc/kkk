@@ -54,25 +54,15 @@ class MosaicApp:
     
     def start(self):
         """애플리케이션 시작"""
-        # GUI 표시
-        self.gui.show()
-        
         # 오버레이 표시
         self.overlay.show()
         
-        # 테스트: 자동으로 검열 시작
-        print("🚀 테스트: 자동 검열 시작")
-        self.processor.set_targets(["얼굴", "가슴", "보지", "팬티"])  # 기본 타겟
-        self.processor.set_strength(15)  # 기본 강도
-        self.start_censoring()
-        
-        # 메시지 루프 실행
+        # GUI 메인 루프 실행
         self.gui.run()
         
         # 종료 시 정리
         self.cleanup()
-
-    
+        
     def start_censoring(self):
         """검열 시작"""
         # 이미 실행 중인 경우
