@@ -36,7 +36,7 @@ class PygameOverlayWindow(BaseOverlay):
         self.render_thread = None
         
         print(f"✅ Pygame 기반 오버레이 창 초기화 완료 (해상도: {self.width}x{self.height})")
-    
+        
     def _init_pygame(self):
         """Pygame 초기화"""
         try:
@@ -62,7 +62,7 @@ class PygameOverlayWindow(BaseOverlay):
                     # 윈도우 핸들 가져오기
                     hwnd = pygame.display.get_wm_info()['window']
                     
-                    # 투명 윈도우 설정
+                    # 투명 윈도우 설정 (클릭 스루)
                     ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
                     win32gui.SetWindowLong(
                         hwnd, 
@@ -85,6 +85,8 @@ class PygameOverlayWindow(BaseOverlay):
                         0, 0, 0, 0, 
                         win32con.SWP_NOMOVE | win32con.SWP_NOSIZE
                     )
+                    
+                    print(f"✅ Pygame 윈도우 투명 설정 완료: 핸들={hwnd}")
                     
                 except Exception as e:
                     print(f"⚠️ 윈도우 투명 설정 실패: {e}")

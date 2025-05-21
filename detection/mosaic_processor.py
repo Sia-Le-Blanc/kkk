@@ -17,10 +17,10 @@ class MosaicProcessor:
         self.targets = config.get('default_targets', ["얼굴", "가슴", "보지", "팬티"])
 
         # 클래스 이름 수동 정의 (data.yaml 기준)
-        self.class_names = [
+        self.class_names = CONFIG.get('models', {}).get('class_names', [
             "얼굴", "가슴", "겨드랑이", "보지", "발", "몸 전체", "자지",
             "팬티", "눈", "손", "교미", "신발", "가슴_옷", "보지_옷", "여성"
-        ]
+        ])
 
         # 모델 로드
         if model_path is None:
@@ -55,24 +55,51 @@ class MosaicProcessor:
         roi = cv2.resize(roi, (w, h), interpolation=cv2.INTER_NEAREST)
         img[y1:y2, x1:x2] = roi
         return img
-
+    
     def detect_objects(self, frame):
         """객체 감지 후 모자이크 적용"""
         if not self.model_ready:
+            print("⚠️ 모델이 준비되지 않았습니다.")
             return frame
 
         try:
-            results = self.model(frame)[0]  # 첫 번째 결과만 사용
-            for box in results.boxes:
+            # 원본 프레임 복사 (수정할 사본)
+            processed_frame = frame.copy()
+            
+            # 모델 예측 실행
+            results = self.model(frame)
+            
+            # 디버깅
+            print(f"✅ 감지 결과: {len(results[0].boxes)} 객체 감지됨")
+            
+            # 결과 처리
+            for box in results[0].boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 class_id = int(box.cls[0])
-                class_name = self.class_names[class_id] if class_id < len(self.class_names) else f"Class-{class_id}"
-
+                conf = float(box.conf[0])
+                
+                # 신뢰도 임계값 확인
+                if conf < self.config.get('conf_threshold', 0.5):
+                    continue
+                
+                # 클래스 이름 가져오기
+                if class_id < len(self.class_names):
+                    class_name = self.class_names[class_id]
+                else:
+                    class_name = f"Class-{class_id}"
+                
+                # 디버깅 - 감지된 객체 정보 출력
+                print(f"📌 감지: {class_name} ({conf:.2f}) @ [{x1},{y1},{x2},{y2}]")
+                
+                # 타겟 클래스인 경우 모자이크 적용
                 if class_name in self.targets:
-                    frame = self.apply_mosaic(frame, x1, y1, x2, y2)
+                    print(f"🎯 모자이크 적용: {class_name}")
+                    processed_frame = self.apply_mosaic(processed_frame, x1, y1, x2, y2)
 
-            return frame
+            return processed_frame
 
         except Exception as e:
-            print(f"❌ 감지 실패: {e}")
+            print(f"❌ 객체 감지 실패: {e}")
+            import traceback
+            traceback.print_exc()
             return frame

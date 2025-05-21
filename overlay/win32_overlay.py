@@ -334,3 +334,40 @@ class Win32OverlayWindow(BaseOverlay):
             print(f"❌ 렌더링 오류: {e}")
             import traceback
             traceback.print_exc()
+
+    def _clear_overlay(self):
+        """오버레이를 투명하게 초기화"""
+        try:
+            # 완전 투명 설정
+            if self.hwnd:
+                windll.user32.SetLayeredWindowAttributes(self.hwnd, 0, 0, ULW_ALPHA)
+        except Exception as e:
+            print(f"❌ 오버레이 초기화 오류: {e}")
+
+    def update_regions(self, original_image, mosaic_regions):
+        """모자이크 영역 업데이트"""
+        try:
+            if original_image is None:
+                return
+            
+            self.frame_count += 1
+            
+            # 모자이크 정보 저장
+            self.original_image = original_image
+            self.mosaic_regions = mosaic_regions
+            
+            # 모자이크 영역 조회 및 로그 출력
+            save_interval = self.config.get('debug_save_interval', 30)
+            if len(mosaic_regions) > 0:
+                if self.frame_count % save_interval == 0:
+                    print(f"✅ 모자이크 영역 {len(mosaic_regions)}개 처리 중 (프레임 #{self.frame_count})")
+                    self._save_debug_image()
+            elif self.frame_count % (save_interval * 3) == 0:
+                print(f"📢 모자이크 영역 없음 (프레임 #{self.frame_count})")
+        
+        except Exception as e:
+            print(f"❌ 오버레이 업데이트 실패: {e}")
+
+    def get_window_handle(self):
+        """윈도우 핸들 반환"""
+        return self.hwnd if self.hwnd else 0

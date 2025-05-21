@@ -12,7 +12,7 @@ from detection.mosaic_processor import MosaicProcessor
 from gui.gui_korean import GUIController
 from config import CONFIG
 
-# pygame 오버레이 사용
+# ✅ pygame 오버레이 사용
 from overlay.pygame_overlay import PygameOverlayWindow as Overlay
 
 class MosaicApp:
@@ -40,7 +40,7 @@ class MosaicApp:
         )
         
         # ✅ pygame 기반 오버레이 초기화
-        self.overlay = Overlay()
+        self.overlay = Overlay(CONFIG.get("overlay", {}))
         
         # 처리 스레드
         self.process_thread = None
@@ -60,11 +60,18 @@ class MosaicApp:
         # 오버레이 표시
         self.overlay.show()
         
+        # 테스트: 자동으로 검열 시작
+        print("🚀 테스트: 자동 검열 시작")
+        self.processor.set_targets(["얼굴", "가슴", "보지", "팬티"])  # 기본 타겟
+        self.processor.set_strength(15)  # 기본 강도
+        self.start_censoring()
+        
         # 메시지 루프 실행
         self.gui.run()
         
         # 종료 시 정리
         self.cleanup()
+
     
     def start_censoring(self):
         """검열 시작"""
@@ -86,24 +93,12 @@ class MosaicApp:
             name="Mosaic-Process-Thread"
         )
         self.process_thread.start()
-    
-    def stop_censoring(self):
-        """검열 중지"""
-        print("🛑 검열 중지 요청...")
-        
-        # 스레드 중지
-        if self.process_thread and self.process_thread.is_alive():
-            self.stop_event.set()
-            self.process_thread.join(timeout=1.0)
-        
-        # 오버레이 클리어
-        self.overlay.clear()
-        
-        print("🛑 검열 중지됨")
+        print("✅ 모자이크 처리 스레드 시작됨")
     
     def _process_loop(self):
         """검열 처리 메인 루프"""
         try:
+            print("🔍 모자이크 처리 루프 시작")
             frame_count = 0
             start_time = time.time()
             last_fps_time = start_time
@@ -114,6 +109,10 @@ class MosaicApp:
                 if frame is None:
                     time.sleep(0.01)
                     continue
+                
+                # 디버깅 로그 (100프레임마다)
+                if frame_count % 100 == 0:
+                    print(f"📊 프레임 #{frame_count}: 크기={frame.shape}")
                 
                 # 객체 감지 및 모자이크 처리
                 result = self.processor.detect_objects(frame)
@@ -132,6 +131,8 @@ class MosaicApp:
                 
                 # CPU 과부하 방지
                 time.sleep(0.01)
+            
+            print("✅ 처리 루프 정상 종료")
         
         except Exception as e:
             print(f"❌ 처리 루프 오류: {e}")
@@ -139,7 +140,7 @@ class MosaicApp:
             traceback.print_exc()
         
         print("🛑 처리 스레드 종료")
-    
+        
     def cleanup(self):
         """자원 정리"""
         # 검열 중지
@@ -152,6 +153,20 @@ class MosaicApp:
         self.capturer.stop_capture_thread()
         
         print("✅ 자원 정리 완료")
+
+    def stop_censoring(self):
+        """검열 중지"""
+        print("🛑 검열 중지 요청...")
+        
+        # 스레드 중지
+        if self.process_thread and self.process_thread.is_alive():
+            self.stop_event.set()
+            self.process_thread.join(timeout=1.0)
+        
+        # 오버레이 클리어
+        self.overlay.clear()
+        
+        print("🛑 검열 중지됨")
 
 def main():
     """메인 함수"""

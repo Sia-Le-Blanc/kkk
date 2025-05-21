@@ -7,13 +7,24 @@ import threading
 
 class BaseOverlay(abc.ABC):
     """모든 오버레이 클래스가 구현해야 하는 기본 인터페이스"""
-    
+        
     def __init__(self, config=None):
         """초기화 함수"""
         # 기본 설정값
         self.config = config or {}
-        self.width = self.config.get('width', 1920)
-        self.height = self.config.get('height', 1080)
+        
+        # 시스템 화면 해상도 자동 감지
+        try:
+            import win32api
+            self.width = win32api.GetSystemMetrics(0)  # SM_CXSCREEN
+            self.height = win32api.GetSystemMetrics(1)  # SM_CYSCREEN
+            print(f"✅ 시스템 해상도 감지: {self.width}x{self.height}")
+        except Exception as e:
+            # 자동 감지 실패 시 설정에서 가져오거나 기본값 사용
+            self.width = self.config.get('width', 1366)
+            self.height = self.config.get('height', 768)
+            print(f"⚠️ 시스템 해상도 감지 실패, 기본값 사용: {self.width}x{self.height}")
+        
         self.fps = self.config.get('fps', 30)
         self.render_interval = 1.0 / self.fps
         

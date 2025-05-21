@@ -10,6 +10,7 @@ import win32con
 import win32api
 import numpy as np
 from config import CONFIG
+import threading
 
 # 트랙바(슬라이더) 스타일 상수 정의
 TBS_HORZ = 0x0000
@@ -142,10 +143,15 @@ class MainWindow:
         return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
 
     def _on_start_clicked(self):
+        print("🖱️ 검열 시작 버튼 클릭됨")
         self.running = True
         self.targets = self.get_selected_targets()
+        print(f"🎯 선택된 타겟: {self.targets}")
         if self.start_callback:
             self.start_callback()
+            print("✅ 검열 시작 콜백 실행됨")
+        else:
+            print("⚠️ 검열 시작 콜백이 설정되지 않았습니다")
 
     def _on_stop_clicked(self):
         self.running = False
@@ -185,10 +191,35 @@ class MainWindow:
         win32gui.UpdateWindow(self.hwnd)
 
     def run(self):
-        msg = wintypes.MSG()
-        while win32gui.GetMessage(ctypes.byref(msg), None, 0, 0):
-            win32gui.TranslateMessage(ctypes.byref(msg))
-            win32gui.DispatchMessage(ctypes.byref(msg))
+        """단순화된 메시지 루프"""
+        try:
+            import time
+            
+            # 창 표시
+            win32gui.ShowWindow(self.hwnd, win32con.SW_SHOW)
+            win32gui.UpdateWindow(self.hwnd)
+            
+            # 메시지 펌프 대신 단순 루프 사용
+            print("✅ 간단한 메시지 루프 시작")
+            
+            # 임시 이벤트로 전환 (GUI가 계속 실행되도록)
+            while win32gui.IsWindow(self.hwnd):
+                # 단순 딜레이로 CPU 사용 줄이기
+                time.sleep(0.1)
+                
+                # 기본적인 윈도우 메시지 처리
+                try:
+                    msg = wintypes.MSG()
+                    while win32gui.PeekMessage(msg, 0, 0, 0, 1):
+                        win32gui.TranslateMessage(msg)
+                        win32gui.DispatchMessage(msg)
+                except:
+                    pass  # 예외 무시하고 계속 진행
+                    
+        except Exception as e:
+            print(f"❌ 메시지 루프 오류: {e}")
+        
+        print("🛑 메시지 루프 종료")
 
 class Signal:
     def __init__(self):
@@ -208,3 +239,4 @@ class GUIController(MainWindow):
         self.stop_censoring_signal = Signal()
         self.set_start_callback(self.start_censoring_signal.emit)
         self.set_stop_callback(self.stop_censoring_signal.emit)
+        self.stop_event = threading.Event()
